@@ -38,6 +38,7 @@ struct fontfamily {
 };
 
 std::vector<fontfamily> enumerate_font();
+fontfamily get_default_font();
 
 } // namespace fontlist
 

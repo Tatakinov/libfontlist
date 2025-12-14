@@ -26,4 +26,17 @@ std::vector<fontfamily> enumerate_font() {
     throw std::runtime_error("fontlist: platform not supported");
 }
 
+fontfamily get_default_font() {
+#ifdef _WIN32
+    return get_default_font_win32_dwrite();
+#endif
+#ifdef __linux__
+    return get_default_font_linux_fontconfig();
+#endif
+#ifdef __APPLE__
+    return get_default_font_macos_coretext();
+#endif
+    throw std::runtime_error("fontlist: platform not supported");
+}
+
 } // namespace fontlist

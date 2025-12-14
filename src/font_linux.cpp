@@ -91,5 +91,41 @@ std::vector<fontfamily> enumerate_font_linux_fontconfig() {
     return font_array;
 }
 
+fontfamily get_default_font_linux_fontconfig() {
+    auto config = FcInitLoadConfigAndFonts();
+    auto pat = FcPatternCreate();
+    FcConfigSubstitute(config, pat, FcMatchPattern);
+    FcDefaultSubstitute(pat);
+    FcResult result;
+    auto match = FcFontMatch(config, pat, &result);
+    FcPatternDestroy(pat);
+    if (result == FcResultNoMatch) {
+        throw std::runtime_error("fontlist: default font not found");
+    }
+    FcChar8 *file, *family;
+    int slant, weight;
+    fontfamily ff;
+    if (FcPatternGetString(match, FC_FAMILY, 0, &family) == FcResultMatch &&
+        FcPatternGetString(match, FC_FILE, 0, &file) == FcResultMatch &&
+        FcPatternGetInteger(match, FC_SLANT, 0, &slant) == FcResultMatch &&
+        FcPatternGetInteger(match, FC_WEIGHT, 0, &weight) == FcResultMatch) {
+
+        auto family_str = std::string(reinterpret_cast<const char *>(family));
+        auto file_str = std::filesystem::path(reinterpret_cast<const char *>(file));
+        ff.name = family_str;
+        ff.fonts.push_back(font{
+            .style = trans_slant(slant),
+            .weight = trans_weight(weight),
+            .file = file_str,
+        });
+    }
+    else {
+        FcPatternDestroy(match);
+        throw std::runtime_error("fontlist: default font not found");
+    }
+    FcPatternDestroy(match);
+    return ff;
+}
+
 } // namespace fontlist
 #endif
