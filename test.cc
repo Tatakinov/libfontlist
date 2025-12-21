@@ -17,7 +17,7 @@ int main() {
         auto ff = fontlist::get_default_font();
         std::cout << ff.name << std::endl;
         for (const auto &font : ff.fonts) {
-            std::cout << "  " << font.file << " weight:" << font.weight << " style:" << fontlist::to_string(font.style) << std::endl;
+            std::cout << "  " << font.file << " weight:" << font.weight << " style:" << fontlist::to_string(font.style) << " size:" << font.size << std::endl;
         }
     } catch (std::exception &e) {
         std::cerr << e.what() << std::endl;

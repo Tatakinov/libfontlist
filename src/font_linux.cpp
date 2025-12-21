@@ -57,7 +57,7 @@ std::vector<fontfamily> enumerate_font_linux_fontconfig() {
 
     auto config = FcInitLoadConfigAndFonts();
     auto pat = FcPatternCreate();
-    auto os = FcObjectSetBuild(FC_FAMILY, FC_FILE, FC_SLANT, FC_WEIGHT, (char *)0);
+    auto os = FcObjectSetBuild(FC_FAMILY, FC_FILE, FC_SIZE, FC_SLANT, FC_WEIGHT, (char *)0);
     FcFontSet *fs = FcFontList(config, pat, os);
 
     std::map<std::string, fontfamily> fontfamily_map;
@@ -66,8 +66,10 @@ std::vector<fontfamily> enumerate_font_linux_fontconfig() {
         FcPattern *font = fs->fonts[i];
         FcChar8 *file, *family;
         int slant, weight;
+        double size;
         if (FcPatternGetString(font, FC_FAMILY, 0, &family) == FcResultMatch &&
             FcPatternGetString(font, FC_FILE, 0, &file) == FcResultMatch &&
+            FcPatternGetDouble(font, FC_SIZE, 0, &size) == FcResultMatch &&
             FcPatternGetInteger(font, FC_SLANT, 0, &slant) == FcResultMatch &&
             FcPatternGetInteger(font, FC_WEIGHT, 0, &weight) == FcResultMatch) {
 
@@ -104,9 +106,11 @@ fontfamily get_default_font_linux_fontconfig() {
     }
     FcChar8 *file, *family;
     int slant, weight;
+    double size;
     fontfamily ff;
     if (FcPatternGetString(match, FC_FAMILY, 0, &family) == FcResultMatch &&
         FcPatternGetString(match, FC_FILE, 0, &file) == FcResultMatch &&
+        FcPatternGetDouble(match, FC_SIZE, 0, &size) == FcResultMatch &&
         FcPatternGetInteger(match, FC_SLANT, 0, &slant) == FcResultMatch &&
         FcPatternGetInteger(match, FC_WEIGHT, 0, &weight) == FcResultMatch) {
 
@@ -116,6 +120,7 @@ fontfamily get_default_font_linux_fontconfig() {
         ff.fonts.push_back(font{
             .style = trans_slant(slant),
             .weight = trans_weight(weight),
+            .size = size,
             .file = file_str,
         });
     }
