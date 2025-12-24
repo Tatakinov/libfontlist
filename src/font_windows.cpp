@@ -2,17 +2,21 @@
 #include <stdexcept>
 
 #ifdef _WIN32
-#include <Windows.h>
+#include <windows.h>
 #include <combaseapi.h>
 #include <dwrite_3.h>
 #include <wrl/client.h>
 
 #include <chrono>
+#include <cstring>
 #include <iostream>
 
-#define CHK_HR(x, msg)                   \
-    if (auto result = x; result != S_OK) \
-        throw std::runtime_error(msg);
+#define CHK_HR(x, msg) do {  \
+    if (auto result = x; result != S_OK) {\
+        std::cerr << std::hex << result << std::endl; \
+        throw std::runtime_error(msg); \
+    } \
+} while(false)
 
 namespace fontlist {
 
@@ -66,23 +70,23 @@ static std::filesystem::path get_font_path(IDWriteFontFile *pFontFile) {
     const void *fontFileReferenceKey = nullptr;
     UINT32 fontFileReferenceKeySize = 0;
     CHK_HR(pFontFile->GetReferenceKey(&fontFileReferenceKey, &fontFileReferenceKeySize),
-           "fontlist: failed to run IDWriteFontFile::GetReferenceKey()")
+           "fontlist: failed to run IDWriteFontFile::GetReferenceKey()");
 
     ComPtr<IDWriteFontFileLoader> pLoader;
     CHK_HR(pFontFile->GetLoader(&pLoader),
-           "fontlist: failed to run IDWriteFontFile::GetLoader()")
+           "fontlist: failed to run IDWriteFontFile::GetLoader()");
 
     ComPtr<IDWriteLocalFontFileLoader> pLocalLoader;
     CHK_HR(pLoader.As(&pLocalLoader),
-           "fontlist: failed to cast IDWriteFontFileLoader to IDWriteLocalFontFileLoader")
+           "fontlist: failed to cast IDWriteFontFileLoader to IDWriteLocalFontFileLoader");
 
     UINT32 filePathLength = 0;
     CHK_HR(pLocalLoader->GetFilePathLengthFromKey(fontFileReferenceKey, fontFileReferenceKeySize, &filePathLength),
-           "fontlist: failed to run IDWriteLocalFontFileLoader::GetFilePathLengthFromKey()")
+           "fontlist: failed to run IDWriteLocalFontFileLoader::GetFilePathLengthFromKey()");
 
     std::wstring filePath(filePathLength + 1, L'\0');
     CHK_HR(pLocalLoader->GetFilePathFromKey(fontFileReferenceKey, fontFileReferenceKeySize, filePath.data(), filePathLength + 1),
-           "fontlist: failed to run IDWriteLocalFontFileLoader::GetFilePathFromKey()")
+           "fontlist: failed to run IDWriteLocalFontFileLoader::GetFilePathFromKey()");
     filePath.pop_back();
 
     return filePath;
@@ -108,13 +112,13 @@ std::vector<fontfamily> enumerate_font_win32_dwrite() {
     CHK_HR(
         DWriteCreateFactory(
             DWRITE_FACTORY_TYPE_SHARED,
-            __uuidof(factory),
+            __uuidof(IDWriteFactory2),
             reinterpret_cast<IUnknown **>(factory.GetAddressOf())),
-        "fontlist: failed to run DWriteCreateFactory()")
+        "fontlist: failed to run DWriteCreateFactory()");
 
     CHK_HR(
         factory->GetSystemFontCollection(font_collection.GetAddressOf()),
-        "fontlist: failed to run IDWriteFactory::GetSystemFontCollection()")
+        "fontlist: failed to run IDWriteFactory::GetSystemFontCollection()");
 
     std::wstring locale;
     {
@@ -156,7 +160,7 @@ std::vector<fontfamily> enumerate_font_win32_dwrite() {
 
             ComPtr<IDWriteFontFace> pFontFace;
             CHK_HR(pFont->CreateFontFace(&pFontFace),
-                   "fontlist: failed to run IDWriteFont::CreateFontFace()")
+                   "fontlist: failed to run IDWriteFont::CreateFontFace()");
 
             UINT32 fileCount = 0;
             pFontFace->GetFiles(&fileCount, nullptr);
@@ -172,6 +176,70 @@ std::vector<fontfamily> enumerate_font_win32_dwrite() {
     }
 
     return font_array;
+}
+
+fontfamily get_default_font_win32_dwrite() {
+    std::wstring locale;
+    {
+        wchar_t locale_name[LOCALE_NAME_MAX_LENGTH];
+
+        if (GetUserDefaultLocaleName(locale_name, std::size(locale_name)) == 0)
+            throw std::runtime_error("fontlist: failed to run GetUserDefaultLocaleName()");
+
+        locale = locale_name;
+    }
+    NONCLIENTMETRICS m;
+    const auto size = sizeof(NONCLIENTMETRICS);
+    memset(&m, 0x00, size);
+    m.cbSize = size;
+    if (!SystemParametersInfo(SPI_GETNONCLIENTMETRICS, size, &m, 0)) {
+        std::cerr << "SystemparametersInfo: " << std::hex << GetLastError() << std::endl;
+    }
+    std::wcout << m.lfMenuFont.lfFaceName << std::endl;
+    ComPtr<IDWriteFactory2> factory;
+    CHK_HR(
+        DWriteCreateFactory(
+            DWRITE_FACTORY_TYPE_SHARED,
+            __uuidof(IDWriteFactory2),
+            reinterpret_cast<IUnknown **>(factory.GetAddressOf())),
+        "fontlist: failed to run DWriteCreateFactory()");
+    ComPtr<IDWriteGdiInterop> gdi_interop;
+    CHK_HR(
+        factory->GetGdiInterop(gdi_interop.GetAddressOf()),
+        "fontlist: failed to run IDWriteFactory::GetGdiInterop()");
+    ComPtr<IDWriteFont> pFont;
+    CHK_HR(gdi_interop->CreateFontFromLOGFONT(&m.lfMenuFont, pFont.GetAddressOf()),
+           "fontlist: failed to run IDWriteGdiInterop::CreateFontFromLOGFONT()");
+
+    ComPtr<IDWriteFontFamily> family;
+    CHK_HR(
+        pFont->GetFontFamily(family.GetAddressOf()),
+        "failed to run IDWriteFactory::GetFontFamily()");
+
+    fontfamily fontfamily;
+    fontfamily.name = get_font_name(family.Get(), locale);
+
+    DWRITE_FONT_STYLE win_style = pFont->GetStyle();
+    DWRITE_FONT_WEIGHT weight = pFont->GetWeight();
+    DWRITE_FONT_STRETCH stretch = pFont->GetStretch();
+
+    font font;
+    font.style = trans_style(win_style);
+    font.weight = weight;
+
+    ComPtr<IDWriteFontFace> pFontFace;
+    CHK_HR(pFont->CreateFontFace(&pFontFace),
+           "fontlist: failed to run IDWriteFont::CreateFontFace()");
+
+    UINT32 fileCount = 0;
+    pFontFace->GetFiles(&fileCount, nullptr);
+
+    std::vector<IDWriteFontFile *> fontFiles(fileCount);
+    pFontFace->GetFiles(&fileCount, fontFiles.data());
+
+    font.file = get_font_path(fontFiles[0]);
+    fontfamily.fonts.push_back(font);
+    return fontfamily;
 }
 
 } // namespace fontlist

@@ -1,5 +1,5 @@
-CXXFLAGS=-g -O2 -Wall -std=c++20 -I . -I include $(shell pkg-config --cflags fontconfig)
-LDFLAGS=-L . $(shell pkg-config --libs fontconfig)
+CXXFLAGS=-g -O2 -DUNICODE -Wall -std=c++20 -I . -I include
+LDFLAGS=-L . -ldwrite -static-libgcc -static-libstdc++
 OBJ=$(shell find -name "*.cc" | sed -e 's/\.cc$$/.o/g') $(shell find src -name "*.cpp" | sed -e 's/\.cpp$$/.o/g')
 TARGET=test.exe
 
