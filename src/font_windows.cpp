@@ -195,7 +195,6 @@ fontfamily get_default_font_win32_dwrite() {
     if (!SystemParametersInfo(SPI_GETNONCLIENTMETRICS, size, &m, 0)) {
         std::cerr << "SystemparametersInfo: " << std::hex << GetLastError() << std::endl;
     }
-    std::wcout << m.lfMenuFont.lfFaceName << std::endl;
     ComPtr<IDWriteFactory2> factory;
     CHK_HR(
         DWriteCreateFactory(
