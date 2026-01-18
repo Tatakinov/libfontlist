@@ -172,6 +172,8 @@ std::vector<fontfamily> enumerate_font_win32_dwrite() {
             // for (UINT32 k = 0; k < fileCount; ++k) {
             //     font.file = get_font_path(fontFiles[k]);
             // }
+            // FIXME: magic number
+            font.size = 12;
         }
     }
 
@@ -237,6 +239,8 @@ fontfamily get_default_font_win32_dwrite() {
     pFontFace->GetFiles(&fileCount, fontFiles.data());
 
     font.file = get_font_path(fontFiles[0]);
+    // FIXME: magic number
+    font.size = 12;
     fontfamily.fonts.push_back(font);
     return fontfamily;
 }
